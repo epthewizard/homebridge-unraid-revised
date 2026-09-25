@@ -1,0 +1,38 @@
+{
+  "name": "@epthewizard/homebridge-unraid",
+  "version": "0.1.8",
+  "displayName": "Unraid",
+  "description": "Homebridge platform for monitoring and optionally controlling Unraid through its GraphQL API.",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/modern/index.js",
+  "types": "dist/modern/index.d.ts",
+  "homepage": "https://github.com/epthewizard/homebridge-unraid#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/epthewizard/homebridge-unraid.git"
+  },
+  "bugs": {
+    "url": "https://github.com/epthewizard/homebridge-unraid/issues"
+  },
+  "publishConfig": { "access": "public" },
+  "files": ["dist", "config.schema.json", "README.md", "schema"],
+  "keywords": ["homebridge-plugin", "supports-hap", "unraid", "graphql", "homekit", "docker", "virtual-machines"],
+  "engines": { "node": ">=22.0.0", "homebridge": ">=1.8.0" },
+  "peerDependencies": { "homebridge": ">=1.8.0" },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "homebridge": "1.8.0",
+    "typescript": "5.6.3"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "prepare": "npm run build"
+  },
+  "homebridge": {
+    "pluginAlias": "UnraidGraphQL",
+    "pluginType": "platform",
+    "schema": "config.schema.json"
+  }
+}

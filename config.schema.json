@@ -1,0 +1,190 @@
+{
+  "pluginAlias": "UnraidGraphQL",
+  "pluginType": "platform",
+  "singular": true,
+  "customUi": false,
+  "schema": {
+    "type": "object",
+    "required": ["name", "endpoint"],
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "default": "Unraid",
+        "description": "The name shown for this Unraid server in HomeKit."
+      },
+      "endpoint": {
+        "title": "Unraid server URL/IP",
+        "type": "string",
+        "default": "http://tower.local/graphql",
+        "description": "For example: http://192.168.5.153. The plugin adds /graphql when it is omitted."
+      },
+      "apiKey": {
+        "title": "API key",
+        "type": "string",
+        "options": { "hidden": true },
+        "x-schema-form": { "type": "password" },
+        "description": "Create this in Unraid under Settings → Management Access → API Keys."
+      },
+      "apiKeyEnvironmentVariable": {
+        "title": "API-key environment variable",
+        "type": "string",
+        "default": "UNRAID_API_KEY",
+        "description": "Used when the API key field is blank. The Homebridge process must receive it; the name must start with UNRAID_."
+      },
+      "pollInterval": {
+        "title": "Polling interval (seconds)",
+        "type": "integer",
+        "default": 30,
+        "minimum": 15,
+        "maximum": 3600,
+        "description": "A longer interval reduces load on Unraid."
+      },
+      "enableArray": {
+        "title": "Array",
+        "type": "boolean",
+        "default": true
+      },
+      "arrayControls": {
+        "title": "Allow array start/stop switch",
+        "type": "boolean",
+        "default": false,
+        "description": "Requires Array update permission. An encrypted array may still require its password in Unraid.",
+        "condition": { "functionBody": "return model.enableArray === true;" }
+      },
+      "enableParity": {
+        "title": "Parity",
+        "type": "boolean",
+        "default": true
+      },
+      "enableDisks": {
+        "title": "Disks",
+        "type": "boolean",
+        "default": true
+      },
+      "diskWarningTemperature": {
+        "title": "Disk warning temperature (°C)",
+        "type": "number",
+        "default": 50,
+        "minimum": 1,
+        "maximum": 100,
+        "condition": { "functionBody": "return model.enableDisks === true;" }
+      },
+      "diskCriticalTemperature": {
+        "title": "Disk critical temperature (°C)",
+        "type": "number",
+        "default": 60,
+        "minimum": 1,
+        "maximum": 100,
+        "condition": { "functionBody": "return model.enableDisks === true;" }
+      },
+      "enableDocker": {
+        "title": "Docker containers",
+        "type": "boolean",
+        "default": true
+      },
+      "dockerControls": {
+        "title": "Docker outlet controls (start/stop)",
+        "type": "boolean",
+        "default": false,
+        "description": "Shows one Docker accessory with an outlet for each container. Requires Docker update permission in the Unraid API key.",
+        "condition": { "functionBody": "return model.enableDocker === true;" }
+      },
+      "dockerInclude": {
+        "title": "Docker containers to include",
+        "type": "string",
+        "default": "",
+        "description": "Optional comma-separated names. Leave blank to include all.",
+        "condition": { "functionBody": "return model.enableDocker === true;" }
+      },
+      "dockerExclude": {
+        "title": "Docker containers to exclude",
+        "type": "string",
+        "default": "",
+        "description": "Optional comma-separated names. Exclusions take precedence.",
+        "condition": { "functionBody": "return model.enableDocker === true;" }
+      },
+      "exposeStoppedContainers": {
+        "title": "Expose stopped Docker containers",
+        "type": "boolean",
+        "default": true,
+        "condition": { "functionBody": "return model.enableDocker === true;" }
+      },
+      "enableVms": {
+        "title": "Virtual machines",
+        "type": "boolean",
+        "default": true
+      },
+      "vmControls": {
+        "title": "VM outlet controls (start/stop)",
+        "type": "boolean",
+        "default": false,
+        "description": "Shows one VMs accessory with an outlet for each VM. Requires VM update permission in the Unraid API key.",
+        "condition": { "functionBody": "return model.enableVms === true;" }
+      },
+      "vmInclude": {
+        "title": "Virtual machines to include",
+        "type": "string",
+        "default": "",
+        "description": "Optional comma-separated names. Leave blank to include all.",
+        "condition": { "functionBody": "return model.enableVms === true;" }
+      },
+      "vmExclude": {
+        "title": "Virtual machines to exclude",
+        "type": "string",
+        "default": "",
+        "description": "Optional comma-separated names. Exclusions take precedence.",
+        "condition": { "functionBody": "return model.enableVms === true;" }
+      },
+      "exposeStoppedVms": {
+        "title": "Expose stopped virtual machines",
+        "type": "boolean",
+        "default": true,
+        "condition": { "functionBody": "return model.enableVms === true;" }
+      }
+    }
+  },
+  "layout": [
+    "name",
+    {
+      "type": "section",
+      "title": "Connection",
+      "expandable": false,
+      "items": ["endpoint", "apiKey"]
+    },
+    {
+      "type": "section",
+      "title": "Show in HomeKit",
+      "expandable": false,
+      "items": ["enableArray", "enableParity", "enableDisks", "enableDocker", "enableVms"]
+    },
+    {
+      "type": "section",
+      "title": "Controls",
+      "expandable": true,
+      "expanded": false,
+      "items": ["arrayControls", "dockerControls", "vmControls"]
+    },
+    {
+      "type": "section",
+      "title": "Filters",
+      "expandable": true,
+      "expanded": false,
+      "items": ["dockerInclude", "dockerExclude", "exposeStoppedContainers", "vmInclude", "vmExclude", "exposeStoppedVms"]
+    },
+    {
+      "type": "section",
+      "title": "Thresholds",
+      "expandable": true,
+      "expanded": false,
+      "items": ["diskWarningTemperature", "diskCriticalTemperature"]
+    },
+    {
+      "type": "section",
+      "title": "Advanced options",
+      "expandable": true,
+      "expanded": false,
+      "items": ["apiKeyEnvironmentVariable", "pollInterval"]
+    }
+  ]
+}
