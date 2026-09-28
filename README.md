@@ -1,40 +1,81 @@
 # Homebridge Unraid Revised
 
-Homebridge platform plugin for Unraid's GraphQL API. It exposes selected Unraid
-resources in HomeKit and keeps write access off until you enable it.
-
-## HomeKit accessories
-
-| Resource | Default accessory | Optional control |
-| --- | --- | --- |
-| Array | Running-state sensor | Start/stop switch |
-| Parity check | Running-state and fault sensor | None |
-| Disks | Temperature sensors with fault state | None |
-| Docker containers | One Docker accessory with a status sensor for each container | One named outlet per container for start/stop |
-| Virtual machines | One VMs accessory with a status sensor for each VM | One named outlet per VM for start/stop |
-
-With outlet controls enabled, open Docker or VMs in the Home app to see the
-individual outlets. The plugin sends each container or VM name to HomeKit before
-registering the power strip with Homebridge.
-Home may offer "Show as Separate Tiles"; leave it off to keep the group together.
-
-The plugin only queries resources that you enable. A read-only key for disks does
-not need Docker or VM permissions when those resources are turned off.
+Monitor your Unraid server in Apple Home through Homebridge. You can also start
+and stop the array, Docker containers, and virtual machines if you enable those
+controls and give your Unraid API key the matching permissions.
 
 ## Install
 
-The package name for Homebridge's plugin search is:
+1. Make sure Homebridge is running and your Unraid server has the Unraid API.
+   The API is built into Unraid 7.2 and later. On earlier versions, install the
+   Unraid Connect plugin. See the [Unraid API setup guide](https://docs.unraid.net/API/).
+2. In Unraid, open **Settings → Management Access → API Keys** and create a key
+   for Homebridge. Grant read access to the resources you plan to show. You can
+   add control permissions later if you want start and stop switches.
+3. In Homebridge, open **Plugins**, search for `homebridge-unraid-revised`, and
+   install it. If you installed an older Unraid Homebridge plugin, remove its
+   platform configuration and uninstall it so you do not get duplicate devices.
+4. Open this plugin's **Settings**. Enter a name, your Unraid server URL or IP
+   (for example, `http://tower.local`), and the API key. The key field is masked.
+5. Choose what to show in HomeKit: **Array**, **Parity**, **Disks**,
+   **Docker containers**, and **Virtual machines**. Save the settings and
+   restart Homebridge if prompted.
+6. Open Apple Home to find the accessories. If Homebridge reports a connection
+   error, check the server URL, API key permissions, and Homebridge logs.
 
-```
-homebridge-unraid-revised
-```
+You can enter the full `/graphql` URL if you have one. Otherwise, the plugin
+adds `/graphql` to the server URL.
 
-After publishing to npm, find `homebridge-unraid-revised` on the Homebridge
-Plugins page. Remove the older Unraid plugin first so it cannot expose duplicate
-accessories. The platform identifier remains `UnraidGraphQL`, so the existing
-configuration fields can be reused.
+## What appears in Apple Home
 
-To build an installable archive in `artifacts/`:
+| Enabled feature | Accessory |
+| --- | --- |
+| Array | Running state; optional start/stop switch |
+| Parity | Check state and fault status |
+| Disks | Temperature and fault status |
+| Docker containers | One Docker accessory with a status sensor for each container; optional named outlets to start and stop each container |
+| Virtual machines | One VMs accessory with a status sensor for each VM; optional named outlets to start and stop each VM |
+
+Docker and VM start/stop controls are off by default. To use them, grant the
+API key the relevant update permission, then enable **Docker outlet controls**
+or **VM outlet controls** under **Controls** in the plugin settings. Open the
+Docker or VMs accessory in Apple Home to see each container or VM by name.
+Keep Apple's **Show as Separate Tiles** option off if you want the outlets to
+stay in one group.
+
+The Settings form also has collapsed sections for **Filters** (choose which
+containers and VMs appear), **Thresholds** (disk temperature warnings), and
+**Advanced options** (polling interval and API-key environment variable).
+Leave these at their defaults unless you need them. The plugin only queries
+features you enable.
+
+## Upgrading from an older version
+
+The Homebridge platform identifier is still `UnraidGraphQL`, so your existing
+settings can be reused. Earlier versions exposed Docker containers and VMs as
+separate accessories. After a successful refresh, the plugin removes those
+accessories and adds the grouped Docker and VMs accessories. You may need to
+recreate Apple Home automations tied to the old accessories.
+
+Apple Home may keep an outlet name that you changed manually. If its label does
+not match the name in Unraid, edit that outlet's name in Apple Home.
+
+## API key permissions
+
+Use an API key with permissions for the features you enabled. Monitoring needs
+read access. Array, Docker, and VM start/stop each need the matching update
+permission. [Unraid's API guide](https://docs.unraid.net/API/how-to-use-the-api/)
+explains how to create and manage keys. The plugin sends the key in the
+`x-api-key` header.
+
+If you manage Homebridge with environment variables, you can leave the masked
+API-key field blank and set `UNRAID_API_KEY` for the Homebridge process. The
+variable name can be changed under **Advanced options**.
+
+## Build a local package
+
+These commands are for testing or maintaining this repository. Regular users
+can install the published package from Homebridge's **Plugins** screen.
 
 ```sh
 npm ci
@@ -43,69 +84,21 @@ mkdir -p artifacts
 npm pack --pack-destination artifacts
 ```
 
-Install the generated `artifacts/homebridge-unraid-revised-<version>.tgz` through
-Homebridge's Plugins page or with `npm install /full/path/to/the/archive.tgz`
-in Homebridge's plugin directory. Restart Homebridge, then open Settings.
+The archive will be `artifacts/homebridge-unraid-revised-<version>.tgz`, where
+`<version>` is the version in `package.json`. To install that archive manually,
+run `npm install /full/path/to/artifacts/homebridge-unraid-revised-<version>.tgz`
+in the Homebridge plugin installation directory, then restart Homebridge.
 
-## Configure
+## Maintainer notes
 
-Enter your Unraid server URL, such as `http://tower.local`. The plugin adds
-`/graphql` when it is omitted. You can also enter the complete GraphQL endpoint.
+`schema/unraid.schema.json` is the GraphQL introspection snapshot used to
+select operations in `src/modern/unraid-client.ts`. Refresh it after an Unraid
+API upgrade before adding fields or mutations.
 
-Then either:
-
-- Paste an API key into the masked API-key field.
-- Leave that field blank and pass `UNRAID_API_KEY` to the Homebridge process.
-
-The Settings form has a Show in HomeKit section for choosing:
-
-- Array and parity monitoring, with an optional array start/stop switch
-- Disk temperature monitoring and warning thresholds
-- Docker and VM discovery
-- Include/exclude lists for Docker containers and VMs
-- Whether stopped workloads appear in HomeKit
-- Docker and VM outlet controls for individual start/stop
-
-Docker and VM controls stay off by default. Enable them only after granting the
-API key the matching update permission.
-
-The plugin replaces earlier individual Docker and VM accessories after a
-successful refresh. Upgrading from 0.1.8 or earlier replaces the previous
-Docker and VMs groups once so HomeKit can import their names after the outlets
-are fully built.
-Automations tied to the replaced groups may need to be recreated. Apple Home
-can keep a name you previously set inside the Home app; edit that outlet's name
-there if it does not pick up the Unraid name.
-
-## API key permissions
-
-Create an Unraid API key with the smallest set of permissions that matches the
-features you enable. Read permissions cover monitoring. Array, Docker, and VM
-start/stop each need the matching update permission.
-
-The GraphQL endpoint uses the `x-api-key` request header. See the [Unraid API
-guide](https://docs.unraid.net/API/how-to-use-the-api/) for API-key management
-and sandbox setup.
-
-## Publishing
-
-This repository is configured as the public npm package
-`homebridge-unraid-revised`. To publish the archive you just built:
+Only publish a version after reviewing the package contents and updating the
+version in `package.json`:
 
 ```sh
 npm login --auth-type=web
 npm publish ./artifacts/homebridge-unraid-revised-<version>.tgz --access public
 ```
-
-Replace `<version>` with the version in `package.json`. If npm returns E404 on
-the PUT request while `npm whoami` works, the current npm token may lack
-publish permission. Login through the browser again, then retry. New public
-packages require two-factor authentication or a publish token that can bypass
-it. The archive includes the native Homebridge Settings schema, compiled
-plugin, README, and captured GraphQL schema.
-
-## Development notes
-
-`schema/unraid.schema.json` is the complete GraphQL introspection snapshot used
-to select the operations in `src/modern/unraid-client.ts`. Refresh it after an
-Unraid API upgrade before adding fields or mutations.
