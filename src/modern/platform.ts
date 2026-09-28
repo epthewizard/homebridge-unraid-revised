@@ -38,7 +38,6 @@ interface UnraidContext {
   kind: AccessoryKind;
   id: string;
   running?: boolean;
-  handlersBound?: boolean;
   states?: Record<string, boolean>;
 }
 
@@ -48,6 +47,8 @@ export class UnraidPlatform implements DynamicPlatformPlugin {
   private readonly client: UnraidClient;
   private readonly accessories = new Map<string, PlatformAccessory>();
   private refreshInFlight?: Promise<void>;
+
+  private readonly boundServices = new WeakSet<Service>();
 
   public constructor(private readonly log: Logging, private readonly config: UnraidConfig, private readonly api: API) {
     this.Service = api.hap.Service;
@@ -78,7 +79,12 @@ export class UnraidPlatform implements DynamicPlatformPlugin {
 
   private async refreshSnapshot(): Promise<void> {
     try {
-      const snapshot = await this.client.snapshot(this.snapshotOptions());
+      const options = this.snapshotOptions();
+      if (!Object.values(options).some(Boolean)) {
+        this.removeMissing(new Set());
+        return;
+      }
+      const snapshot = await this.client.snapshot(options);
       const live = new Set<string>();
       if ((this.config.enableArray !== false || this.config.enableParity !== false) && snapshot.array) {
         this.updateArray(snapshot, live);
@@ -117,19 +123,18 @@ export class UnraidPlatform implements DynamicPlatformPlugin {
         this.removeService(accessory, this.Service.OccupancySensor, 'array-state');
         const service = accessory.getServiceById(this.Service.Switch, 'array-state')
           ?? accessory.addService(this.Service.Switch, 'Array', 'array-state');
-        if (!context.handlersBound) {
+        if (!this.boundServices.has(service)) {
           service.getCharacteristic(this.Characteristic.On)
             .onGet(() => Boolean((accessory.context as UnraidContext).running))
             .onSet(async (value) => {
               await this.client.setArrayRunning(value === true || value === 1);
               await this.refresh();
             });
-          context.handlersBound = true;
+          this.boundServices.add(service);
         }
         service.updateCharacteristic(this.Characteristic.On, Boolean(context.running));
       } else {
         this.removeService(accessory, this.Service.Switch, 'array-state');
-        context.handlersBound = false;
         const service = accessory.getServiceById(this.Service.OccupancySensor, 'array-state')
           ?? accessory.addService(this.Service.OccupancySensor, 'Array Running', 'array-state');
         service.updateCharacteristic(this.Characteristic.OccupancyDetected, context.running ? 1 : 0);
@@ -138,7 +143,6 @@ export class UnraidPlatform implements DynamicPlatformPlugin {
     } else {
       this.removeService(accessory, this.Service.OccupancySensor, 'array-state');
       this.removeService(accessory, this.Service.Switch, 'array-state');
-      context.handlersBound = false;
     }
 
     if (this.config.enableParity !== false) {
@@ -230,13 +234,16 @@ private syncServiceName(service: Service, name: string): boolean {
             changed = true;
           }
           if (this.syncServiceName(service, entry.name)) changed = true;
-          service.getCharacteristic(this.Characteristic.On)
-            .onGet(() => Boolean((accessory.context as UnraidContext).states?.[entry.id]))
-            .onSet(async (value) => {
-              if (kind === 'docker-group') await this.client.setContainerRunning(entry.id, value === true || value === 1);
-              else await this.client.setVmRunning(entry.id, value === true || value === 1);
-              await this.refresh();
-            });
+          if (!this.boundServices.has(service)) {
+            service.getCharacteristic(this.Characteristic.On)
+              .onGet(() => Boolean((accessory.context as UnraidContext).states?.[entry.id]))
+              .onSet(async (value) => {
+                if (kind === 'docker-group') await this.client.setContainerRunning(entry.id, value === true || value === 1);
+                else await this.client.setVmRunning(entry.id, value === true || value === 1);
+                await this.refresh();
+              });
+            this.boundServices.add(service);
+          }
           service.updateCharacteristic(this.Characteristic.On, entry.running);
           service.updateCharacteristic(this.Characteristic.OutletInUse, entry.running);
         } else {

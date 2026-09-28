@@ -86,8 +86,8 @@ npm pack --pack-destination artifacts
 
 The archive will be `artifacts/homebridge-unraid-revised-<version>.tgz`, where
 `<version>` is the version in `package.json`. To install that archive manually,
-run `npm install /full/path/to/artifacts/homebridge-unraid-revised-<version>.tgz`
-in the Homebridge plugin installation directory, then restart Homebridge.
+run `npm install /full/path/to/your/archive.tgz` in the Homebridge plugin
+installation directory, then restart Homebridge.
 
 ## Maintainer notes
 
@@ -100,5 +100,6 @@ version in `package.json`:
 
 ```sh
 npm login --auth-type=web
-npm publish ./artifacts/homebridge-unraid-revised-<version>.tgz --access public
+package_version=$(node -p 'require("./package.json").version')
+npm publish "./artifacts/homebridge-unraid-revised-${package_version}.tgz" --access public
 ```

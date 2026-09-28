@@ -5,8 +5,8 @@ import { UnraidPlatform } from '../../dist/modern/platform.js';
 const Service = Object.fromEntries(['AccessoryInformation', 'Outlet', 'OccupancySensor', 'Switch'].map((name) => [name, { UUID: name }]));
 
 class FakeCharacteristic {
-  onGet(handler) { this.getHandler = handler; return this; }
-  onSet(handler) { this.setHandler = handler; return this; }
+  onGet(handler) { this.getHandler = handler; this.getBindings = (this.getBindings ?? 0) + 1; return this; }
+  onSet(handler) { this.setHandler = handler; this.setBindings = (this.setBindings ?? 0) + 1; return this; }
 }
 
 class FakeService {
@@ -62,6 +62,7 @@ function platform(config = {}) {
   const commands = [];
   plugin.config = { name: 'Unraid', enableArray: false, enableParity: false, enableDisks: false, ...config };
   plugin.accessories = new Map();
+  plugin.boundServices = new WeakSet();
   plugin.Service = Service;
   plugin.Characteristic = Object.fromEntries(['Name', 'ConfiguredName', 'Manufacturer', 'Model', 'SerialNumber', 'On', 'OutletInUse', 'OccupancyDetected', 'StatusActive'].map((name) => [name, name]));
   plugin.api = {
@@ -80,6 +81,7 @@ function platform(config = {}) {
   };
   plugin.log = { error: (message) => { throw new Error(message); } };
   plugin.client = {
+    setArrayRunning: async (...args) => commands.push(['array', ...args]),
     setContainerRunning: async (...args) => commands.push(['docker', ...args]),
     setVmRunning: async (...args) => commands.push(['vm', ...args]),
   };
@@ -116,6 +118,39 @@ test('Docker outlets share one accessory and control their own stable IDs', asyn
   plugin.refresh = async () => {};
   await second.getCharacteristic('On').setHandler(true);
   assert.deepEqual(commands, [['docker', 'docker-b', true]]);
+});
+
+test('polling binds an outlet handler only once', async () => {
+  const { plugin, registered, commands } = platform({ dockerControls: true, enableVms: false });
+  plugin.client.snapshot = async () => ({ docker: { containers } });
+  await plugin.refreshSnapshot();
+  await plugin.refreshSnapshot();
+
+  const on = registered[0].getServiceById(Service.Outlet, 'docker-a').getCharacteristic('On');
+  assert.equal(on.getBindings, 1);
+  assert.equal(on.setBindings, 1);
+  plugin.refresh = async () => {};
+  await on.setHandler(false);
+  assert.deepEqual(commands, [['docker', 'docker-a', false]]);
+});
+
+test('a cached array switch gets a fresh handler after restart', async () => {
+  const { plugin, commands } = platform({ enableArray: true, arrayControls: true, enableDocker: false, enableVms: false });
+  const cached = new FakeAccessory('Unraid Array', 'array-uuid');
+  cached.context = { kind: 'array', id: 'system', handlersBound: true };
+  cached.addService(Service.Switch, 'Array', 'array-state');
+  plugin.configureAccessory(cached);
+  plugin.client.snapshot = async () => ({ array: { state: 'STARTED' } });
+  await plugin.refreshSnapshot();
+  await plugin.refreshSnapshot();
+
+  const on = cached.getServiceById(Service.Switch, 'array-state').getCharacteristic('On');
+  assert.equal(on.getBindings, 1);
+  assert.equal(on.setBindings, 1);
+  assert.equal(on.getHandler(), true);
+  plugin.refresh = async () => {};
+  await on.setHandler(false);
+  assert.deepEqual(commands, [['array', false]]);
 });
 
 test('VMs form a separate accessory with individually controlled outlets', async () => {
@@ -234,4 +269,16 @@ test('Docker filters accept names with or without the API prefix', () => {
   assert.equal(plugin.shouldExpose('/homebridge', true, '/homebridge', undefined, true), true);
   assert.equal(plugin.shouldExpose('/homebridge', true, undefined, 'homebridge', true), false);
   assert.equal(plugin.shouldExpose('/homebridge', true, undefined, '/homebridge', true), false);
+});
+
+test('disabling every feature removes cached accessories without querying Unraid', async () => {
+  const { plugin, unregistered } = platform({ enableDocker: false, enableVms: false });
+  const cached = new FakeAccessory('Docker', 'old-group-uuid');
+  cached.context = { kind: 'docker-group', id: 'ready-1' };
+  plugin.configureAccessory(cached);
+  plugin.client.snapshot = async () => { throw new Error('snapshot should not be queried'); };
+
+  await plugin.refreshSnapshot();
+  assert.deepEqual(unregistered, [cached]);
+  assert.equal(plugin.accessories.size, 0);
 });

@@ -41,6 +41,13 @@ installation guide is in `README.md`.
   or registration order. Apple Home can retain a label that a user set there;
   it may need to be edited in the Home app. Changes that replace an accessory
   can also require users to recreate automations.
+- Keep HomeKit handler registration in process memory. Accessory `context` is
+  cached across Homebridge restarts, so a saved "handler attached" flag can
+  leave a restored switch without a working handler. Bind each outlet or array
+  switch once per `Service` object in the current process. Polling should update
+  values without rebinding handlers.
+- If every feature toggle is off, remove cached accessories without sending
+  an empty GraphQL query. Keep this case covered by a regression test.
 
 ## Build and release checks
 

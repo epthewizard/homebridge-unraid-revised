@@ -18,6 +18,7 @@ function createPlatform() {
   plugin.Service = Service;
   plugin.Characteristic = Characteristic;
   plugin.accessories = new Map();
+  plugin.boundServices = new WeakSet();
   plugin.api = {
     platformAccessory: LocalAccessory,
     hap: { uuid },
