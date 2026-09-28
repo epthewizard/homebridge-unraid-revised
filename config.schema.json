@@ -17,7 +17,7 @@
         "title": "Unraid server URL/IP",
         "type": "string",
         "default": "http://tower.local/graphql",
-        "description": "For example: http://192.168.5.153. The plugin adds /graphql when it is omitted."
+        "description": "For example: http://tower.local. The plugin adds /graphql when it is omitted."
       },
       "apiKey": {
         "title": "API key",

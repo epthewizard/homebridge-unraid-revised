@@ -1,6 +1,6 @@
 {
   "name": "homebridge-unraid-revised",
-  "version": "0.1.8",
+  "version": "0.1.10",
   "displayName": "Unraid Revised",
   "description": "Homebridge platform for monitoring and optionally controlling Unraid through its GraphQL API.",
   "license": "MIT",

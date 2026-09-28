@@ -56,6 +56,7 @@ class FakeAccessory {
 function platform(config = {}) {
   const plugin = Object.create(UnraidPlatform.prototype);
   const registered = [];
+  const registeredSnapshots = [];
   const updated = [];
   const unregistered = [];
   const commands = [];
@@ -66,7 +67,14 @@ function platform(config = {}) {
   plugin.api = {
     platformAccessory: FakeAccessory,
     hap: { uuid: { generate: (value) => value } },
-    registerPlatformAccessories: (_, __, accessories) => registered.push(...accessories),
+    registerPlatformAccessories: (_, __, accessories) => {
+      registered.push(...accessories);
+      for (const accessory of accessories) {
+        registeredSnapshots.push(accessory.services
+          .filter((service) => service.UUID === Service.Outlet.UUID)
+          .map((service) => ({ name: service.values.get('Name'), configuredName: service.values.get('ConfiguredName') })));
+      }
+    },
     updatePlatformAccessories: (accessories) => updated.push(...accessories),
     unregisterPlatformAccessories: (_, __, accessories) => unregistered.push(...accessories),
   };
@@ -75,7 +83,7 @@ function platform(config = {}) {
     setContainerRunning: async (...args) => commands.push(['docker', ...args]),
     setVmRunning: async (...args) => commands.push(['vm', ...args]),
   };
-  return { plugin, registered, updated, unregistered, commands };
+  return { plugin, registered, registeredSnapshots, updated, unregistered, commands };
 }
 
 const containers = [
@@ -84,10 +92,14 @@ const containers = [
 ];
 
 test('Docker outlets share one accessory and control their own stable IDs', async () => {
-  const { plugin, registered, commands } = platform({ dockerControls: true, enableVms: false });
+  const { plugin, registered, registeredSnapshots, commands } = platform({ dockerControls: true, enableVms: false });
   plugin.client.snapshot = async () => ({ docker: { containers } });
   await plugin.refreshSnapshot();
   assert.equal(registered.length, 1);
+  assert.deepEqual(registeredSnapshots, [[
+    { name: 'homebridge', configuredName: 'homebridge' },
+    { name: 'wasp-api', configuredName: 'wasp-api' },
+  ]]);
   const accessory = registered[0];
   assert.equal(accessory.displayName, 'Docker');
   const first = accessory.getServiceById(Service.Outlet, 'docker-a');
@@ -150,7 +162,7 @@ test('a successful refresh removes old individual tiles and stale grouped servic
 test('cached grouped services update names without changing accessory identity', async () => {
   const { plugin, updated } = platform({ dockerControls: true, enableVms: false });
   const cached = new FakeAccessory('Docker', 'existing-uuid');
-  cached.context = { kind: 'docker-group', id: 'named-1' };
+  cached.context = { kind: 'docker-group', id: 'ready-1' };
   cached.addService(Service.Outlet, '/homebridge', 'docker-a');
   plugin.configureAccessory(cached);
   plugin.client.snapshot = async () => ({ docker: { containers: [containers[0]] } });
@@ -195,15 +207,15 @@ test('group serial numbers are valid and cached short serials are repaired', () 
   const entries = [{ id: 'docker-a', name: 'homebridge', running: true }];
   plugin.updateGroup('docker-group', 'Docker', entries, true, new Set());
   const information = registered[0].getService(Service.AccessoryInformation);
-  assert.equal(information.values.get('SerialNumber'), 'docker-group:named-1');
+  assert.equal(information.values.get('SerialNumber'), 'docker-group:ready-1');
 
   const cached = new FakeAccessory('VMs', 'existing-vm-uuid');
-  cached.context = { kind: 'vm-group', id: 'named-1' };
+  cached.context = { kind: 'vm-group', id: 'ready-1' };
   cached.getService(Service.AccessoryInformation).updateCharacteristic('SerialNumber', '1');
   plugin.configureAccessory(cached);
   plugin.updateGroup('vm-group', 'VMs', [{ id: 'vm-a', name: 'Windows', running: true }], true, new Set());
   assert.equal(cached.UUID, 'existing-vm-uuid');
-  assert.equal(cached.getService(Service.AccessoryInformation).values.get('SerialNumber'), 'vm-group:named-1');
+  assert.equal(cached.getService(Service.AccessoryInformation).values.get('SerialNumber'), 'vm-group:ready-1');
   assert.ok(updated.includes(cached));
 });
 

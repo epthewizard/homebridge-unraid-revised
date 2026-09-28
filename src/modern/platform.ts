@@ -202,7 +202,9 @@ private syncServiceName(service: Service, name: string): boolean {
     const groupSize = 99;
     for (let offset = 0; offset < ordered.length; offset += groupSize) {
       const number = Math.floor(offset / groupSize) + 1;
-      const accessory = this.upsert(kind, `named-${number}`, number === 1 ? label : `${label} ${number}`, live);
+      const id = `ready-${number}`;
+      const isNew = !this.accessories.has(this.key(kind, id));
+      const accessory = this.upsert(kind, id, number === 1 ? label : `${label} ${number}`, live);
       const context = accessory.context as UnraidContext;
       const group = ordered.slice(offset, offset + groupSize);
       context.states = Object.fromEntries(group.map((entry) => [entry.id, entry.running]));
@@ -248,7 +250,8 @@ private syncServiceName(service: Service, name: string): boolean {
           service.updateCharacteristic(this.Characteristic.StatusActive, true);
         }
       }
-      if (changed) this.api.updatePlatformAccessories([accessory]);
+      if (isNew) this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+      else if (changed) this.api.updatePlatformAccessories([accessory]);
     }
   }
 
@@ -267,7 +270,7 @@ private syncServiceName(service: Service, name: string): boolean {
         .setCharacteristic(this.Characteristic.Model, kind)
         .setCharacteristic(this.Characteristic.SerialNumber, serialNumber);
       this.accessories.set(key, accessory);
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+      if (!grouped) this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
     } else {
       let changed = false;
       const information = accessory.getService(this.Service.AccessoryInformation);

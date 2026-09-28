@@ -61,8 +61,8 @@ test('real HomeKit payload names every Docker and VM outlet from Unraid', async 
     { id: 'vm-1', name: 'Windows 11', running: true },
   ], true, new Set());
 
-  const docker = plugin.accessories.get('docker-group:named-1');
-  const vms = plugin.accessories.get('vm-group:named-1');
+  const docker = plugin.accessories.get('docker-group:ready-1');
+  const vms = plugin.accessories.get('vm-group:ready-1');
   assert.equal(docker.displayName, 'Docker');
   assert.equal(vms.displayName, 'VMs');
   assert.deepEqual(await namesInHapPayload(docker), [

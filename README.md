@@ -14,7 +14,8 @@ resources in HomeKit and keeps write access off until you enable it.
 | Virtual machines | One VMs accessory with a status sensor for each VM | One named outlet per VM for start/stop |
 
 With outlet controls enabled, open Docker or VMs in the Home app to see the
-individual outlets. Each outlet uses the container or VM name from Unraid.
+individual outlets. The plugin sends each container or VM name to HomeKit before
+registering the power strip with Homebridge.
 Home may offer "Show as Separate Tiles"; leave it off to keep the group together.
 
 The plugin only queries resources that you enable. A read-only key for disks does
@@ -33,19 +34,22 @@ Plugins page. Remove the older Unraid plugin first so it cannot expose duplicate
 accessories. The platform identifier remains `UnraidGraphQL`, so the existing
 configuration fields can be reused.
 
-For local development:
+To build an installable archive in `artifacts/`:
 
 ```sh
-npm install
+npm ci
 npm run build
-npm link
+mkdir -p artifacts
+npm pack --pack-destination artifacts
 ```
 
-Then add the platform through the Homebridge UI and select Settings.
+Install the generated `artifacts/homebridge-unraid-revised-<version>.tgz` through
+Homebridge's Plugins page or with `npm install /full/path/to/the/archive.tgz`
+in Homebridge's plugin directory. Restart Homebridge, then open Settings.
 
 ## Configure
 
-Enter your Unraid server URL, such as `http://192.168.5.153`. The plugin adds
+Enter your Unraid server URL, such as `http://tower.local`. The plugin adds
 `/graphql` when it is omitted. You can also enter the complete GraphQL endpoint.
 
 Then either:
@@ -65,10 +69,13 @@ The Settings form has a Show in HomeKit section for choosing:
 Docker and VM controls stay off by default. Enable them only after granting the
 API key the matching update permission.
 
-The plugin replaces the earlier individual Docker and VM accessories after a
-successful refresh. This release also creates fresh Docker and VMs groups so
-HomeKit imports each outlet's Unraid name. Automations tied to the old
-accessories may need to be recreated.
+The plugin replaces earlier individual Docker and VM accessories after a
+successful refresh. Upgrading from 0.1.8 or earlier replaces the previous
+Docker and VMs groups once so HomeKit can import their names after the outlets
+are fully built.
+Automations tied to the replaced groups may need to be recreated. Apple Home
+can keep a name you previously set inside the Home app; edit that outlet's name
+there if it does not pick up the Unraid name.
 
 ## API key permissions
 
@@ -83,16 +90,19 @@ and sandbox setup.
 ## Publishing
 
 This repository is configured as the public npm package
-`homebridge-unraid-revised`. Create the matching GitHub repository before
-publishing, then run:
+`homebridge-unraid-revised`. To publish the archive you just built:
 
 ```sh
-npm login
-npm publish
+npm login --auth-type=web
+npm publish ./artifacts/homebridge-unraid-revised-<version>.tgz --access public
 ```
 
-Publishing is a manual release step. The package includes the native Homebridge
-Settings schema, compiled plugin, README, and captured GraphQL schema.
+Replace `<version>` with the version in `package.json`. If npm returns E404 on
+the PUT request while `npm whoami` works, the current npm token may lack
+publish permission. Login through the browser again, then retry. New public
+packages require two-factor authentication or a publish token that can bypass
+it. The archive includes the native Homebridge Settings schema, compiled
+plugin, README, and captured GraphQL schema.
 
 ## Development notes
 
