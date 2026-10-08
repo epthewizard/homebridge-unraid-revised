@@ -34,7 +34,7 @@ installation guide is in `README.md`.
   labels alone do not prove that Apple Home received the outlet names.
 - The v0.1.9 fix also changed the group identity from `named-1` to `ready-1`
   so Apple Home could import a freshly built group. Remove an old group only
-  after a successful Unraid snapshot. The user reported on 2026-09-28 that
+  after a successful Unraid snapshot. A tester reported on 2026-09-28 that
   the grouped outlets finally appeared to work in Apple Home. We have not
   isolated which part of the fix was decisive.
 - Check names in Apple Home after changing outlet creation, naming, subtype,
@@ -73,14 +73,14 @@ tar -xOf "artifacts/homebridge-unraid-revised-${package_version}.tgz" package/RE
 ```
 
 Never put a real API key, server address, personal path, or other private value
-in code, docs, schema defaults, logs, tests, memories, or release archives.
+in code, docs, schema defaults, logs, tests, or release archives.
 Use `http://tower.local` in examples. Do not query a live Unraid server with
 someone's credentials during local validation.
 
 The npm package name is `homebridge-unraid-revised`; the Homebridge platform
 identifier remains `UnraidGraphQL` so existing configuration can be reused.
-Publishing, pushing, and changing a live Homebridge or Unraid installation
-require separate authorization from the user.
+Publishing a release and changing a live Homebridge or Unraid installation
+should be done deliberately, one step at a time.
 
 ## References
 
